@@ -1,25 +1,85 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
+# Course Project 1 Reproducible Research
+
+### Code for reading in the dataset and/or processing the data
+```{r}
+tabla<-read.csv("./activity.csv",header=TRUE)
+names(tabla)
+str(tabla)
+#Tabla que no tiene datos faltantes
+tabla1<-tabla[complete.cases(tabla),]
+```
+
+### Histogram of the total number of steps taken each day
+```{r}
+library(ggplot2)
+totalpasos<- aggregate(steps ~ date, tabla1, sum)
+ggplot(totalpasos,aes(x=steps))+geom_histogram(bins=5,fill="pink",color="red")
+```
+
+### Mean and median number of steps taken each day
+```{r}
+summary(totalpasos$steps)
+```
 
 
-## Loading and preprocessing the data
+### Time series plot of the average number of steps taken
 
+```{r}
+avg_steps_interval<-aggregate(steps~interval,tabla1,mean)
+avg_steps_day<-aggregate(steps~date,tabla1,mean)
+plot(avg_steps_interval$interval, avg_steps_interval$steps, type='l', col=1, main="Número promedio de pasos por intervalo", xlab="Intervalos de tiempo", ylab="Número promedio de pasos")
+```
 
+### The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+Intervalo<-which.max(avg_steps_interval$steps)
+Pasos<-avg_steps_interval[Intervalo,]$steps
+```
+El intervalo de 5 minutos que contiene el máximo número de pasos es `r Intervalo` con `r Pasos`.
 
-## What is mean total number of steps taken per day?
+### Code to describe and show a strategy for imputing missing data
+```{r}
+#se buscan cuantos datos faltantes hay
+datos_faltantes<-tabla[!complete.cases(tabla),]
+nrow(datos_faltantes)
+#Se ingresan valores promedio en los datos faltantes
+for (i in 1:nrow(tabla)) {
+    if(is.na(tabla$steps[i])) {
+        val <- avg_steps_interval$steps[which(avg_steps_interval$interval == tabla$interval[i])]
+        tabla$steps[i] <- val 
+    }
+}
+steps_day_impute <- aggregate(steps ~ date, tabla, sum)
+str(steps_day_impute)
+```
 
+### Histogram of the total number of steps taken each day after missing values are imputed
+```{r}
+ggplot(steps_day_impute,aes(x=steps))+geom_histogram(bins=5,fill="white",color="blue")+ggtitle("Histograma con datos imputados")
+```
 
+### Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+```{r}
+#Validamos si es un día laboral o de trabajo
+week_day <- function(date_val) {
+    wd <- weekdays(as.Date(date_val, '%Y-%m-%d'))
+    if  (!(wd == 'sábado' || wd == 'domingo')) {
+        x <- 'Weekday'
+    } else {
+        x <- 'Weekend'
+    }
+    x
+}
+#Se grafica por tipo de día
+tabla$day_type <- as.factor(sapply(tabla$date, week_day))
+#Se revisa a qué tipo de día pertenece
+steps_day_impute <- aggregate(steps ~ interval+day_type, tabla, mean)
+plt <- ggplot(steps_day_impute, aes(interval, steps)) +
+        geom_line(stat = "identity", aes(colour = day_type)) +
+        facet_grid(day_type ~ ., scales="fixed", space="fixed") +
+        labs(x="Intervalo", y=expression("Número de pasos")) +
+        ggtitle("Número de pasos por intervalo por tipo de día")
+print(plt)
+```
 
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+All of the R code needed to reproduce the results (numbers, plots, etc.) in the report
